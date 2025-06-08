@@ -32,19 +32,19 @@ def build_prompt(question, rubric, examples, user_input, generation_instructions
     )
 
     return f"""
-{generation_instructions}
-
-Rubric:
-{rubric}
-
-Interview Question:
+Case Question:
 {question}
+
+Candidate's Answer:
+{user_input}
 
 Historical Examples:
 {retrieved_text}
 
-Candidate's Answer:
-{user_input}
+Rubric:
+{rubric}
+
+{generation_instructions}
 """
 
 def generate_feedback(prompt, system_role, api_key):

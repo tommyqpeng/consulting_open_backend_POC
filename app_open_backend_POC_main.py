@@ -69,7 +69,7 @@ if st.button("Submit") and user_input.strip():
         prompt = build_prompt(question, rubric, examples, user_input, generation_instructions)
 
     # --- Prompt Engineering Playground ---
-    st.markdown("### 🔧 Prompt Engineering Playground")
+    st.markdown("### Prompt Engineering Playground")
 
     with st.expander("View Prompt Sent to GPT"):
         st.code(prompt, language="markdown")
@@ -89,8 +89,8 @@ if st.button("Submit") and user_input.strip():
 
     # --- Editable version ---
     st.markdown("### Edit Prompt & Role")
-    custom_prompt = st.text_area("Custom Prompt", prompt, height=300)
     custom_role = st.text_area("Custom System Role", system_role, height=100)
+    custom_prompt = st.text_area("Custom Prompt", prompt, height=300)
 
     if st.button("Submit with Custom Prompt"):
         with st.spinner("Generating feedback..."):

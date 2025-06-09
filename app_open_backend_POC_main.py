@@ -87,14 +87,15 @@ if st.button("Submit") and user_input.strip():
             "final_prompt": prompt,
         })
 
-    # --- Editable version ---
-    st.markdown("### Edit Prompt & Role")
+    # --- Editable prompt & temperature ---
+    st.markdown("### Edit Prompt, Role & Temperature")
     custom_role = st.text_area("Custom System Role", system_role, height=100)
     custom_prompt = st.text_area("Custom Prompt", prompt, height=300)
+    temperature = st.slider("Model Temperature (0 = deterministic, 1 = creative)", 0.0, 1.0, 0.4, step=0.05)
 
     if st.button("Submit with Custom Prompt"):
         with st.spinner("Generating feedback..."):
-            feedback = generate_feedback(custom_prompt, custom_role, DEEPSEEK_API_KEY)
+            feedback = generate_feedback(custom_prompt, custom_role, DEEPSEEK_API_KEY, temperature)
 
         if feedback:
             st.success("Done!")
@@ -106,8 +107,9 @@ if st.button("Submit") and user_input.strip():
                 user_input.strip(),
                 feedback.strip(),
                 custom_role.strip(),
-                custom_prompt.strip()
+                custom_prompt.strip(),
+                str(temperature)
             ])
-            st.info("Your answer, prompt, and role have been logged.")
+            st.info("Your response has been logged.")
         else:
             st.error("API call failed.")

@@ -6,10 +6,8 @@ Created on Sun Jun  1 14:24:21 2025
 """
 
 import json
-import re
 import requests
 from cryptography.fernet import Fernet
-from datetime import datetime
 
 def decrypt_file(encrypted_path, decryption_key):
     """
@@ -47,10 +45,11 @@ Rubric:
 {generation_instructions}
 """
 
-def generate_feedback(prompt, system_role, api_key):
+def generate_feedback(prompt, system_role, api_key, temperature=0.4):
     """
-    Sends the prompt and system role to the DeepSeek API and returns the feedback and average score.
+    Sends the prompt and system role to the DeepSeek API with specified temperature.
     """
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -62,14 +61,15 @@ def generate_feedback(prompt, system_role, api_key):
             {"role": "system", "content": system_role},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.4
+        "temperature": temperature
     }
 
-    response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=payload)
-
-    if response.status_code != 200:
-        return None, response
-
-    content = response.json()["choices"][0]["message"]["content"]
-
-    return content
+    try:
+        response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=payload)
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        return content
+    except Exception as e:
+        print(f"[DeepSeek API Error] {e}")
+        print("Response text:", getattr(response, "text", "No response"))
+        return None

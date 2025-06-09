@@ -62,30 +62,21 @@ st.markdown("### Interview Question")
 st.markdown(question)
 user_input = st.text_area("Write your answer here:", height=200)
 
-# --- Process Answer ---
-if st.button("Submit") and user_input.strip():
+# --- Retrieve examples & build prompt when user submits base answer ---
+if st.button("Submit"):
     with st.spinner("Retrieving examples and building prompt..."):
         examples = retriever.get_nearest_neighbors(user_input, n=3)
-        prompt = build_prompt(question, rubric, examples, user_input, generation_instructions)
+        base_prompt = build_prompt(question, rubric, examples, user_input, generation_instructions)
+        st.session_state.examples = examples
+        st.session_state.base_prompt = base_prompt
+
+# --- Only show prompt engineering playground if prompt is available ---
+if "base_prompt" in st.session_state:
+    examples = st.session_state.examples
+    prompt = st.session_state.base_prompt
 
     # --- Prompt Engineering Playground ---
     st.markdown("### Prompt Engineering Playground")
-
-    with st.expander("View Prompt Sent to GPT"):
-        st.code(prompt, language="markdown")
-
-    with st.expander("View System Role"):
-        st.code(system_role, language="markdown")
-
-    with st.expander("View Full API Call Components"):
-        st.json({
-            "question": question,
-            "rubric": rubric,
-            "examples_used": examples,
-            "user_input": user_input,
-            "system_role": system_role,
-            "final_prompt": prompt,
-        })
 
     # --- Editable prompt & temperature ---
     st.markdown("### Edit Prompt, Role & Temperature")
@@ -94,7 +85,7 @@ if st.button("Submit") and user_input.strip():
     temperature = st.slider("Model Temperature (0 = deterministic, 1 = creative)", 0.0, 1.0, 0.4, step=0.05)
 
     if st.button("Submit with Custom Prompt"):
-        st.warning("⏱ Button clicked, processing...")
+        st.warning("⏱ Button clicked, calling DeepSeek...")
         with st.spinner("Generating feedback..."):
             feedback = generate_feedback(custom_prompt, custom_role, DEEPSEEK_API_KEY, temperature)
 
@@ -111,6 +102,6 @@ if st.button("Submit") and user_input.strip():
                 custom_prompt.strip(),
                 str(temperature)
             ])
-            st.info("Your response has been logged.")
+            st.info("Your answer, prompt, role, and temperature have been logged.")
         else:
             st.error("API call failed.")

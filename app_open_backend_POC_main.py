@@ -94,6 +94,7 @@ if st.button("Submit") and user_input.strip():
     temperature = st.slider("Model Temperature (0 = deterministic, 1 = creative)", 0.0, 1.0, 0.4, step=0.05)
 
     if st.button("Submit with Custom Prompt"):
+        st.warning("⏱ Button clicked, processing...")
         with st.spinner("Generating feedback..."):
             feedback = generate_feedback(custom_prompt, custom_role, DEEPSEEK_API_KEY, temperature)
 

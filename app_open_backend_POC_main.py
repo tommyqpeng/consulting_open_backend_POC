@@ -68,9 +68,9 @@ if st.button("Submit Answer"):
         st.session_state["user_input"] = user_input
         st.session_state["examples"] = examples
         st.session_state["show_engineering"] = True
-        st.session_state["feedback"] = None  # Reset if re-run
+        st.session_state["feedback"] = None  # Reset feedback
 
-# --- Step 2: Show Retrieved Examples + Prompt Engineering (after submit) ---
+# --- Step 2: Show examples + prompt engineering ---
 if st.session_state.get("show_engineering"):
     st.markdown("### 🔎 Retrieved Historical Examples")
     for i, ex in enumerate(st.session_state["examples"]):
@@ -80,15 +80,19 @@ if st.session_state.get("show_engineering"):
 
     st.markdown("## ✏️ Prompt Engineering")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        custom_role = st.text_area("System Role", system_role_default, height=100)
-        custom_rubric = st.text_area("Rubric", rubric_default, height=150)
-    with col2:
-        generation_instructions = st.text_area("Generation Instructions", generation_instructions_default, height=150)
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.4, step=0.05)
+    st.markdown("#### System Role")
+    custom_role = st.text_area("System Role", system_role_default, height=100)
 
-    # --- Visual Prompt Order Editor ---
+    st.markdown("#### Rubric")
+    custom_rubric = st.text_area("Rubric", rubric_default, height=150)
+
+    st.markdown("#### Generation Instructions")
+    generation_instructions = st.text_area("Generation Instructions", generation_instructions_default, height=150)
+
+    st.markdown("#### Temperature")
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.4, step=0.05)
+
+    # --- Prompt Component Ordering ---
     st.markdown("### 🔀 Prompt Component Ordering")
     prompt_parts = ["question", "rubric", "examples", "input", "instructions"]
     selected_order = []
@@ -132,10 +136,12 @@ if st.session_state.get("show_engineering"):
                 str(temperature)
             ])
             st.success("Feedback generated and logged!")
+        else:
+            st.error("No feedback returned. Check your prompt or API key.")
 
 # --- Step 4: Show Final Prompt and Feedback ---
 if st.session_state.get("feedback"):
-    st.markdown("### Final Prompt Sent to DeepSeek")
+    st.markdown("### 📜 Final Prompt Sent to DeepSeek")
     st.code(st.session_state["final_prompt"], language="markdown")
-    st.markdown("### DeepSeek Feedback")
+    st.markdown("### 💬 DeepSeek Feedback")
     st.write(st.session_state["feedback"])

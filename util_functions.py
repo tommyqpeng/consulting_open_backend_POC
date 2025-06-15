@@ -20,30 +20,39 @@ def decrypt_file(encrypted_path, decryption_key):
     decrypted = fernet.decrypt(encrypted)
     return json.loads(decrypted)
 
-def build_prompt(question, rubric, examples, user_input, generation_instructions):
+def build_prompt(
+    question,
+    rubric,
+    examples,
+    user_input,
+    generation_instructions,
+    order="question,rubric,examples,input,instructions"
+):
     """
-    Builds the full prompt for the model including instructions, question, examples, and candidate input.
+    Builds the full prompt for the model using a flexible ordering of components.
+    Valid keys for 'order' are: question, rubric, examples, input, instructions.
     """
-    retrieved_text = "\n".join(
-        f"Past Answer: {item['answer']}\nFeedback Given: {item['feedback']}\n"
-        for item in examples
-    )
 
-    return f"""
-Case Question:
-{question}
+    components = {
+        "question": f"Case Question:\n{question}\n",
+        "rubric": f"Rubric:\n{rubric}\n",
+        "examples": "\n".join(
+            f"Past Answer:\n{item['answer']}\nFeedback Given:\n{item['feedback']}\n"
+            for item in examples
+        ),
+        "input": f"Candidate's Answer:\n{user_input}\n",
+        "instructions": generation_instructions.strip()
+    }
 
-Candidate's Answer:
-{user_input}
+    sections = []
+    for key in order.split(","):
+        key = key.strip().lower()
+        if key in components:
+            sections.append(components[key])
+        else:
+            raise ValueError(f"Invalid prompt section key: '{key}'")
 
-Historical Examples:
-{retrieved_text}
-
-Rubric:
-{rubric}
-
-{generation_instructions}
-"""
+    return "\n\n".join(sections)
 
 def generate_feedback(prompt, system_role, api_key, temperature=0.4):
     """

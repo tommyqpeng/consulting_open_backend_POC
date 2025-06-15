@@ -42,9 +42,9 @@ if not st.session_state.authenticated:
 # --- Load prompt and rubric ---
 prompt_data = decrypt_file("prompts.json.encrypted", DECRYPTION_KEY)
 question = prompt_data["question"]
-rubric = prompt_data["rubric"]
-system_role = prompt_data["system_role"]
-generation_instructions = prompt_data["generation_instructions"]
+rubric_default = prompt_data["rubric"]
+system_role_default = prompt_data["system_role"]
+generation_instructions_default = prompt_data["generation_instructions"]
 
 # --- Load Retriever ---
 @st.cache_resource
@@ -62,31 +62,59 @@ st.markdown("### Interview Question")
 st.markdown(question)
 user_input = st.text_area("Write your answer here:", height=200)
 
-# --- Retrieve examples & build prompt when user submits base answer ---
+# --- Custom Prompt Parameters ---
+st.markdown("## Prompt Components")
+col1, col2 = st.columns(2)
+with col1:
+    custom_role = st.text_area("System Role", system_role_default, height=100)
+    custom_rubric = st.text_area("Rubric", rubric_default, height=150)
+with col2:
+    generation_instructions = st.text_area("Generation Instructions", generation_instructions_default, height=150)
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.4, step=0.05)
+
+# --- Visual Prompt Order Editor ---
+st.markdown("## Prompt Component Ordering")
+prompt_parts = ["question", "rubric", "examples", "input", "instructions"]
+selected_order = []
+remaining_parts = prompt_parts.copy()
+
+for i in range(len(prompt_parts)):
+    choice = st.selectbox(
+        f"Position {i + 1}",
+        options=[""] + remaining_parts,
+        key=f"prompt_order_{i}"
+    )
+    if choice:
+        selected_order.append(choice)
+        remaining_parts.remove(choice)
+
+prompt_order = ",".join(selected_order)
+
+# --- Base prompt generation ---
 if st.button("Submit"):
     with st.spinner("Retrieving examples and building prompt..."):
         examples = retriever.get_nearest_neighbors(user_input, n=3)
-        base_prompt = build_prompt(question, rubric, examples, user_input, generation_instructions)
         st.session_state.examples = examples
-        st.session_state.base_prompt = base_prompt
+        prompt = build_prompt(question, custom_rubric, examples, user_input, generation_instructions, order=prompt_order)
+        st.session_state.prompt = prompt
 
-# --- Only show prompt engineering playground if prompt is available ---
-if "base_prompt" in st.session_state:
+# --- If prompt built, show result and submit for feedback ---
+if "prompt" in st.session_state:
+    prompt = st.session_state.prompt
     examples = st.session_state.examples
-    prompt = st.session_state.base_prompt
 
-    # --- Prompt Engineering Playground ---
-    st.markdown("### Prompt Engineering Playground")
+    st.markdown("### Retrieved Historical Examples")
+    for i, ex in enumerate(examples):
+        with st.expander(f"Example {i + 1}"):
+            st.markdown(f"**Past Answer:**\n{ex['answer']}")
+            st.markdown(f"**Feedback Given:**\n{ex['feedback']}")
 
-    # --- Editable prompt & temperature ---
-    st.markdown("### Edit Prompt, Role & Temperature")
-    custom_role = st.text_area("Custom System Role", system_role, height=100)
-    custom_prompt = st.text_area("Custom Prompt", prompt, height=300)
-    temperature = st.slider("Model Temperature (0 = deterministic, 1 = creative)", 0.0, 1.0, 0.4, step=0.05)
+    st.markdown("### Final Prompt Preview")
+    st.code(prompt, language="markdown")
 
-    if st.button("Submit with Custom Prompt"):
+    if st.button("Submit to DeepSeek"):
         with st.spinner("Generating feedback..."):
-            feedback = generate_feedback(custom_prompt, custom_role, DEEPSEEK_API_KEY, temperature)
+            feedback = generate_feedback(prompt, custom_role, DEEPSEEK_API_KEY, temperature)
 
         if feedback:
             st.success("Done!")
@@ -98,9 +126,9 @@ if "base_prompt" in st.session_state:
                 user_input.strip(),
                 feedback.strip(),
                 custom_role.strip(),
-                custom_prompt.strip(),
+                prompt.strip(),
                 str(temperature)
             ])
-            st.info("Your answer, prompt, role, and temperature have been logged.")
+            st.info("Logged to sheet.")
         else:
-            st.error("API call failed.")
+            st.error("No feedback returned. Check API or prompt.")

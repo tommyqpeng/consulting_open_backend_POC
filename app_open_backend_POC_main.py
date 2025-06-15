@@ -57,78 +57,85 @@ def load_retriever():
     )
 retriever = load_retriever()
 
-# --- UI Input ---
+# --- Step 1: User Input ---
 st.markdown("### Interview Question")
 st.markdown(question)
 user_input = st.text_area("Write your answer here:", height=200)
 
-# --- Custom Prompt Parameters ---
-st.markdown("## Prompt Components")
-col1, col2 = st.columns(2)
-with col1:
-    custom_role = st.text_area("System Role", system_role_default, height=100)
-    custom_rubric = st.text_area("Rubric", rubric_default, height=150)
-with col2:
-    generation_instructions = st.text_area("Generation Instructions", generation_instructions_default, height=150)
-    temperature = st.slider("Temperature", 0.0, 1.0, 0.4, step=0.05)
-
-# --- Visual Prompt Order Editor ---
-st.markdown("## Prompt Component Ordering")
-prompt_parts = ["question", "rubric", "examples", "input", "instructions"]
-selected_order = []
-remaining_parts = prompt_parts.copy()
-
-for i in range(len(prompt_parts)):
-    choice = st.selectbox(
-        f"Position {i + 1}",
-        options=[""] + remaining_parts,
-        key=f"prompt_order_{i}"
-    )
-    if choice:
-        selected_order.append(choice)
-        remaining_parts.remove(choice)
-
-prompt_order = ",".join(selected_order)
-
-# --- Base prompt generation ---
-if st.button("Submit"):
-    with st.spinner("Retrieving examples and building prompt..."):
+if st.button("Submit Answer"):
+    with st.spinner("Retrieving similar answers..."):
         examples = retriever.get_nearest_neighbors(user_input, n=3)
-        st.session_state.examples = examples
-        prompt = build_prompt(question, custom_rubric, examples, user_input, generation_instructions, order=prompt_order)
-        st.session_state.prompt = prompt
+        st.session_state["user_input"] = user_input
+        st.session_state["examples"] = examples
+        st.session_state["show_engineering"] = True
+        st.session_state["feedback"] = None  # Reset if re-run
 
-# --- If prompt built, show result and submit for feedback ---
-if "prompt" in st.session_state:
-    prompt = st.session_state.prompt
-    examples = st.session_state.examples
-
-    st.markdown("### Retrieved Historical Examples")
-    for i, ex in enumerate(examples):
+# --- Step 2: Show Retrieved Examples + Prompt Engineering (after submit) ---
+if st.session_state.get("show_engineering"):
+    st.markdown("### 🔎 Retrieved Historical Examples")
+    for i, ex in enumerate(st.session_state["examples"]):
         with st.expander(f"Example {i + 1}"):
             st.markdown(f"**Past Answer:**\n{ex['answer']}")
             st.markdown(f"**Feedback Given:**\n{ex['feedback']}")
 
-    st.markdown("### Final Prompt Preview")
-    st.code(prompt, language="markdown")
+    st.markdown("## ✏️ Prompt Engineering")
 
+    col1, col2 = st.columns(2)
+    with col1:
+        custom_role = st.text_area("System Role", system_role_default, height=100)
+        custom_rubric = st.text_area("Rubric", rubric_default, height=150)
+    with col2:
+        generation_instructions = st.text_area("Generation Instructions", generation_instructions_default, height=150)
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.4, step=0.05)
+
+    # --- Visual Prompt Order Editor ---
+    st.markdown("### 🔀 Prompt Component Ordering")
+    prompt_parts = ["question", "rubric", "examples", "input", "instructions"]
+    selected_order = []
+    remaining_parts = prompt_parts.copy()
+
+    for i in range(len(prompt_parts)):
+        choice = st.selectbox(
+            f"Position {i + 1}",
+            options=[""] + remaining_parts,
+            key=f"prompt_order_{i}"
+        )
+        if choice:
+            selected_order.append(choice)
+            remaining_parts.remove(choice)
+
+    prompt_order = ",".join(selected_order)
+
+    # --- Step 3: Submit to DeepSeek ---
     if st.button("Submit to DeepSeek"):
+        prompt = build_prompt(
+            question,
+            custom_rubric,
+            st.session_state["examples"],
+            st.session_state["user_input"],
+            generation_instructions,
+            order=prompt_order
+        )
         with st.spinner("Generating feedback..."):
             feedback = generate_feedback(prompt, custom_role, DEEPSEEK_API_KEY, temperature)
 
         if feedback:
-            st.success("Done!")
-            st.markdown("### Feedback")
-            st.write(feedback)
+            st.session_state["feedback"] = feedback
+            st.session_state["final_prompt"] = prompt
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([
                 timestamp,
-                user_input.strip(),
+                st.session_state["user_input"].strip(),
                 feedback.strip(),
                 custom_role.strip(),
                 prompt.strip(),
                 str(temperature)
             ])
-            st.info("Logged to sheet.")
-        else:
-            st.error("No feedback returned. Check API or prompt.")
+            st.success("Feedback generated and logged!")
+
+# --- Step 4: Show Final Prompt and Feedback ---
+if st.session_state.get("feedback"):
+    st.markdown("### Final Prompt Sent to DeepSeek")
+    st.code(st.session_state["final_prompt"], language="markdown")
+    st.markdown("### DeepSeek Feedback")
+    st.write(st.session_state["feedback"])
